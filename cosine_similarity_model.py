@@ -122,6 +122,31 @@ def compute_similarity(selected_movies, all_movies, all_genre_ids):
     return similarity_matrix
 
 
+def print_similar_movies(api_key, selected_movie_ids, similarity_matrix, all_movie_ids, movie_titles):
+    """
+    Prints the titles and similarity scores of movies similar to the selected movies.
+
+    This function retrieves the title of each selected movie, computes its similarity scores
+    against all other movies, and then prints the top similar movies in a readable format.
+
+    :param api_key: The API key used to access the movie database API.
+    :param selected_movie_ids: A list of movie IDs for which similar movies will be found.
+    :param similarity_matrix: A 2D array where each row contains similarity scores for a selected movie against all other movies.
+    :param all_movie_ids: A list of all movie IDs to which the selected movies are compared.
+    :param movie_titles: A dictionary mapping movie IDs to their titles.
+    :return: None
+    """
+    for i, selected_movie_id in enumerate(selected_movie_ids):
+        selected_movie_title = get_movie_data(selected_movie_id, api_key)['title']
+        print(f"Selected movie ID: {selected_movie_id}, Title: {selected_movie_title}")
+        similarity_scores = similarity_matrix[i]
+        similar_movies = sorted(zip(all_movie_ids, similarity_scores), key=lambda x: x[1], reverse=True)
+        print("Top similar movies:")
+        for movie_id, score in similar_movies:
+            print(f"Movie ID: {movie_id}, Title: {movie_titles[movie_id]} Similarity: {score:.2f}")
+        print()
+
+
 def main():
     """
     The main function that orchestrates the movie similarity computation process.
@@ -146,6 +171,7 @@ def main():
     api_key = load_api_key()
 
     selected_movie_ids = [105, 680]
+
     movies_id = get_movies_id(api_key, 1)
     all_movie_ids = [movie['id'] for movie in movies_id]
 
@@ -163,15 +189,7 @@ def main():
     pprint(similarity_matrix)
     print()
 
-    for i, selected_movie_id in enumerate(selected_movie_ids):
-        selected_movie_title = get_movie_data(selected_movie_id, api_key)['title']
-        print(f"Selected movie ID: {selected_movie_id}, Title: {selected_movie_title}")
-        similarity_scores = similarity_matrix[i]
-        similar_movies = sorted(zip(all_movie_ids, similarity_scores), key=lambda x: x[1], reverse=True)
-        print("Top similar movies:")
-        for movie_id, score in similar_movies:
-            print(f"Movie ID: {movie_id}, Title: {movie_titles[movie_id]} Similarity: {score:.2f}")
-        print()
+    print_similar_movies(api_key, selected_movie_ids, similarity_matrix, all_movie_ids, movie_titles)
 
 
 if __name__ == "__main__":
