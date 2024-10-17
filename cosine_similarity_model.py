@@ -15,6 +15,7 @@ def get_movie_data(movie_id, api_key):
     base_url = "https://api.themoviedb.org/3"
     url = f"{base_url}/movie/{movie_id}?api_key={api_key}&language=en-US"
     response = requests.get(url)
+    pprint(response.json())
     return response.json()
 
 
