@@ -59,9 +59,11 @@ def compute_similarity(selected_movies, all_movies, all_genre_ids):
 def main():
     api_key = load_api_key()
 
-    selected_movie_ids = [550, 680]
+    selected_movie_ids = [105, 680]
     movies_id = get_movies_id(api_key, 1)
     all_movie_ids = [movie['id'] for movie in movies_id]
+
+    movie_titles = {movie['id']: movie['title'] for movie in movies_id}
 
     selected_movies = [get_movie_data(movie_id, api_key) for movie_id in selected_movie_ids]
     all_movies = [get_movie_data(movie_id, api_key) for movie_id in all_movie_ids]
@@ -73,14 +75,16 @@ def main():
 
     print("Cosine similarity between selected movies and all movies:")
     pprint(similarity_matrix)
+    print()
 
     for i, selected_movie_id in enumerate(selected_movie_ids):
-        print(f"Selected movie ID: {selected_movie_id}")
+        selected_movie_title = get_movie_data(selected_movie_id, api_key)['title']
+        print(f"Selected movie ID: {selected_movie_id}, Title: {selected_movie_title}")
         similarity_scores = similarity_matrix[i]
         similar_movies = sorted(zip(all_movie_ids, similarity_scores), key=lambda x: x[1], reverse=True)
         print("Top similar movies:")
         for movie_id, score in similar_movies:
-            print(f"Movie ID: {movie_id}, Similarity: {score:.2f}")
+            print(f"Movie ID: {movie_id}, Title: {movie_titles[movie_id]} Similarity: {score:.2f}")
         print()
 
 
