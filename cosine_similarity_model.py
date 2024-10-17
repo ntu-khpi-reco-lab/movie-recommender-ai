@@ -7,11 +7,29 @@ from pprint import pprint
 
 
 def load_api_key():
+    """
+    Loads the API key from the .env file using the python-dotenv library.
+
+    This function calls `load_dotenv` to load environment variables from the .env file
+    and retrieves the value of the "API_KEY" variable, which should be defined in the file.
+
+    :return: The API key as a string, or None if the "API_KEY" variable is not found.
+    """
     load_dotenv()
     return os.getenv("API_KEY")
 
 
 def get_movie_data(movie_id, api_key):
+    """
+    Retrieves detailed data for a specific movie from the TMDb API.
+
+    This function sends a GET request to The Movie Database (TMDb) API to fetch information
+    about a movie, given its movie ID and an API key. The data is returned as a JSON object.
+
+    :param movie_id: The unique ID of the movie to retrieve.
+    :param api_key: The API key for authenticating the request to the TMDb API.
+    :return: A JSON response containing detailed information about the movie, including title, genres, ratings, etc.
+    """
     base_url = "https://api.themoviedb.org/3"
     url = f"{base_url}/movie/{movie_id}?api_key={api_key}&language=en-US"
     response = requests.get(url)
@@ -20,6 +38,16 @@ def get_movie_data(movie_id, api_key):
 
 
 def get_movies_id(api_key, page):
+    """
+    Retrieves a list of popular movies from the TMDb API.
+
+    This function sends a GET request to The Movie Database (TMDb) API to fetch a list of
+    popular movies for a specified page. It returns the results as a list of movie dictionaries.
+
+    :param api_key: The API key for authenticating the request to the TMDb API.
+    :param page: The page number to retrieve results from, for pagination.
+    :return: A list of dictionaries containing information about popular movies.
+    """
     base_url = "https://api.themoviedb.org/3"
     url = f"{base_url}/movie/popular?api_key={api_key}&language=en-US&page={page}"
     response = requests.get(url)
@@ -27,6 +55,16 @@ def get_movies_id(api_key, page):
 
 
 def extract_genres(movies):
+    """
+    Extracts unique genre IDs from a list of movies.
+
+    This function takes a list of movie dictionaries and extracts all unique genre IDs present
+    in the movies. The genre IDs are collected in a set to ensure uniqueness and are returned
+    as a list.
+
+    :param movies: A list of movie dictionaries containing genre information.
+    :return: A list of unique genre IDs found in the provided movies.
+    """
     all_genre_ids = set()
     for movie in movies:
         genres = movie.get('genres', [])
@@ -36,6 +74,20 @@ def extract_genres(movies):
 
 
 def create_feature_vector(movie, all_genre_ids):
+    """
+    Creates a feature vector for a movie based on its genres and rating.
+
+    This function generates a binary feature vector representing the genres of the given movie,
+    along with its average rating. The feature vector consists of a binary indicator for each
+    genre (1 if the movie belongs to that genre, 0 otherwise) followed by the movie's average
+    rating.
+
+    :param movie: A dictionary containing information about the movie, including its genres and
+                  average rating.
+    :param all_genre_ids: A list of all unique genre IDs to create the binary genre vector.
+    :return: A NumPy array representing the feature vector for the movie, which includes the
+             binary genre indicators followed by the average rating.
+    """
     genres = movie.get('genres', [])
     genre_vector = np.zeros(len(all_genre_ids))
     for genre in genres:
@@ -46,6 +98,20 @@ def create_feature_vector(movie, all_genre_ids):
 
 
 def compute_similarity(selected_movies, all_movies, all_genre_ids):
+    """
+    Computes the cosine similarity between selected movies and all movies.
+
+    This function generates feature vectors for both the selected movies and all movies, then
+    calculates the cosine similarity between the selected movies and all other movies. The
+    result is a similarity matrix where each row corresponds to a selected movie and each
+    column corresponds to a movie from the list of all movies.
+
+    :param selected_movies: A list of movie dictionaries for which similarities are being computed.
+    :param all_movies: A list of all movie dictionaries to compare against the selected movies.
+    :param all_genre_ids: A list of all unique genre IDs used to create feature vectors.
+    :return: A 2D NumPy array representing the cosine similarity matrix, where the rows
+             correspond to the selected movies and the columns correspond to all movies.
+    """
     # Create a feature vector for all films
     all_movie_vectors = np.array([create_feature_vector(movie, all_genre_ids) for movie in all_movies])
 
@@ -57,6 +123,26 @@ def compute_similarity(selected_movies, all_movies, all_genre_ids):
 
 
 def main():
+    """
+    The main function that orchestrates the movie similarity computation process.
+
+    This function loads the API key, retrieves a list of popular movies from the TMDb API,
+    and fetches details for selected movies. It then extracts genre information, computes
+    cosine similarity between the selected movies and all other movies, and prints the
+    similarity matrix along with the top similar movies for each selected movie.
+
+    It performs the following steps:
+    1. Loads the API key from the environment.
+    2. Defines a list of selected movie IDs.
+    3. Retrieves a list of popular movies and their IDs.
+    4. Creates a dictionary mapping movie IDs to movie titles.
+    5. Fetches details for the selected movies and all movies.
+    6. Extracts unique genre IDs from the list of all movies.
+    7. Computes the cosine similarity matrix for the selected movies against all other movies.
+    8. Prints the similarity matrix and lists the top similar movies for each selected movie.
+
+    :return: None
+    """
     api_key = load_api_key()
 
     selected_movie_ids = [105, 680]
