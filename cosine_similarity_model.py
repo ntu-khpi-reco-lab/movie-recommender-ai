@@ -1,178 +1,140 @@
-import json
-import numpy as np
-from sklearn.metrics.pairwise import cosine_similarity
-from pprint import pprint
-from collections import Counter
+import joblib
 import logging
-
-def setup_logger():
-    logger = logging.getLogger('logfile.log')
-    logger.setLevel(logging.INFO)
-    handler = logging.StreamHandler()
-    formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
-    handler.setFormatter(formatter)
-    logger.addHandler(handler)
-    return logger
+import numpy as np
+from pymongo import MongoClient
+import pandas as pd
+from sklearn.metrics.pairwise import cosine_similarity
+from sklearn.feature_extraction.text import CountVectorizer
 
 
-logger = setup_logger()
+class MovieRecommender:
+    def __init__(self):
+        self.logger = self.setup_logger()
+        self.all_movie_ids = []
+        self.all_movie_titles = {}
+        self.selected_movies = pd.DataFrame()
 
 
-def load_movies_from_json(file_path):
-    with open(file_path, "r", encoding="utf-8") as file:
-        data = json.load(file)
-    return data
+    @staticmethod
+    def setup_logger():
+        logger = logging.getLogger('MovieRecommender')
+        logger.setLevel(logging.INFO)
+        handler = logging.StreamHandler()
+        formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+        handler.setFormatter(formatter)
+        logger.addHandler(handler)
+        return logger
 
 
-def extract_genres(movies):
-    all_genre_ids = set()
-    for movie in movies:
-        details = movie.get('detail', [])
-        for detail in details:
-            genres = detail.get('genres', [])
-            for genre in genres:
-                all_genre_ids.add(genre['id'])
-    return list(all_genre_ids)
+    @staticmethod
+    def load_movies_from_db(movie_id=None):
+        client = MongoClient("mongodb://user:pass@localhost:27017")
+        db = client["movieDB"]
+        collection = db["movieDetails"]
+
+        query = {}
+        if movie_id:
+            query["_id"] = movie_id
+
+        projection = {
+            "_id": 1,
+            "title": 1,
+            "genres": 1,
+            "cast": 1,
+            "crew": 1,
+            "keywords": 1
+        }
+
+        movies = list(collection.find(query, projection))
+        return pd.DataFrame(movies)
 
 
-def extract_actors(movies):
-    all_actors = set()
-    for movie in movies:
-        credits = movie.get('credit', [])
-        for credit in credits:
-            cast = credit.get('cast', [])
-            for actor in cast:
-                all_actors.add(actor['name'])
-    return list(all_actors)
+    def prepare_data(self, movies_df, liked_movie_ids):
+        self.all_movie_ids = movies_df["_id"].tolist()
+        self.all_movie_titles = movies_df.set_index("_id")["title"].to_dict()
+        self.selected_movies = movies_df[movies_df["_id"].isin(liked_movie_ids)]
 
 
-def extract_keywords(movies):
-    all_keywords = set()
-    for movie in movies:
-        if 'keyword' in movie:
-            for keyword_group in movie['keyword']:
-                if 'keywords' in keyword_group:
-                    for keyword in keyword_group['keywords']:
-                        all_keywords.add(keyword['name'])
-    return list(all_keywords)
+    @staticmethod
+    def create_soup(movie):
+
+        genres = " ".join([genre.get('name', '') for genre in movie.get("genres", []) if isinstance(genre, dict)])
+        cast = " ".join([actor.get('name', '') for actor in movie.get("cast", []) if isinstance(actor, dict)])
+        keywords = " ".join([keyword.get('name', '') for keyword in movie.get("keywords", [])
+                             if isinstance(keyword, dict)])
+        directors = " ".join([member.get("name", "") for member in movie.get("crew", [])
+                              if isinstance(member, dict) and member.get("job") == "Director"])
+
+        return f"{genres} {cast} {keywords} {directors}"
 
 
-def create_feature_vector(movie, all_genre_ids):
-    detail = movie.get('detail', [])
-    if not detail:
-        return np.zeros(len(all_genre_ids) + 1)
+    def prepare_vectors(self, movies_df):
+        movies_df = movies_df.copy()
+        movies_df['soup'] = movies_df.apply(self.create_soup, axis=1)
+        vectorizer = CountVectorizer(stop_words='english')
 
-    genres = detail[0].get('genres', [])
-    genre_vector = np.zeros(len(all_genre_ids))
+        feature_matrix = vectorizer.fit_transform(movies_df['soup'])
 
-    for genre in genres:
-        if genre['id'] in all_genre_ids:
-            genre_vector[all_genre_ids.index(genre['id'])] = 1
-    rating = detail[0].get('vote_average', 0)
-
-    return np.concatenate((genre_vector, [rating]))
+        return feature_matrix
 
 
-def prepare_vectors(movies, all_genre_ids, all_actors, all_keywords, main_case, vector_by):
-    vectors = []
-    for i, movie in enumerate(movies):
-        if i % 100 == 0:  # For log every 100th movie
-            logger.info(f"Processing movie {i + 1}/{len(movies)}")
-        if main_case == 'detail':
-            details = movie.get('detail', [])
-            for detail in details:
-                genres = detail.get(vector_by, [])
-                movie_genre_vector = [1 if genre_id in [g['id'] for g in genres] else 0 for genre_id in all_genre_ids]
-                vectors.append(movie_genre_vector)
-        elif main_case == 'credit':
-            credits = movie.get('credit', [])
-            for credit in credits:
-                cast = credit.get(vector_by, [])
-                movie_cast_vector = [1 if cast_name in [c['name'] for c in cast] else 0 for cast_name in all_actors]
-                vectors.append(movie_cast_vector)
-        elif main_case == 'keyword':
-            keywords = movie.get('keyword', [])
-            for keyword in keywords:
-                keyword_item = keyword.get(vector_by, [])
-                movie_keyword_vector = [1 if kw_name in [k['name'] for k in keyword_item] else 0 for kw_name in all_keywords]
-                vectors.append(movie_keyword_vector)
-    return vectors
+    def compute_similarity(self, all_movies):
+        similarity_matrices = self.prepare_vectors(all_movies)
+        cosine_sim = cosine_similarity(similarity_matrices)
+
+        return cosine_sim
 
 
-def compute_similarity(selected_movies, all_movies, all_genre_ids, all_actors, all_keywords):
-    logger.info('START genre_vectors')
-    selected_genre_vectors = prepare_vectors(selected_movies, all_genre_ids, all_actors, all_keywords, 'detail', 'genres')
-    all_genre_vectors = prepare_vectors(all_movies, all_genre_ids, all_actors, all_keywords, 'detail', 'genres')
-    logger.info('END genre_vectors')
+    def compute_average_similarity(self, similarity_matrix):
+        predictions = []
 
-    logger.info('START actor_vectors')
-    selected_actor_vectors = prepare_vectors(selected_movies, all_genre_ids, all_actors, all_keywords, 'credit', 'cast')
-    all_actor_vectors = prepare_vectors(all_movies, all_genre_ids, all_actors, all_keywords, 'credit', 'cast')
-    logger.info('END actor_vectors')
+        for j, movie_id in enumerate(self.all_movie_ids):
+            similarity_scores = similarity_matrix[:, j]
+            average_similarity = np.nanmean(similarity_scores)
+            title = self.all_movie_titles.get(movie_id, "Unknown Title")
 
-    logger.info('START keyword_vectors')
-    selected_keyword_vectors = prepare_vectors(selected_movies, all_genre_ids, all_actors, all_keywords, 'keyword', 'keywords')
-    all_keyword_vectors = prepare_vectors(all_movies, all_genre_ids, all_actors, all_keywords, 'keyword', 'keywords')
-    logger.info('END keyword_vectors')
+            predictions.append({
+                "movie_id": movie_id,
+                "average_similarity": average_similarity,
+                "title": title
+            })
 
-    genre_similarity = cosine_similarity(selected_genre_vectors, all_genre_vectors)
-    actor_similarity = cosine_similarity(selected_actor_vectors, all_actor_vectors)
-    keyword_similarity = cosine_similarity(selected_keyword_vectors, all_keyword_vectors)
-
-    combined_similarity = (genre_similarity + actor_similarity + keyword_similarity) / 3.0
-    return combined_similarity
+        return sorted(predictions, key=lambda x: x['average_similarity'], reverse=True)
 
 
-def compute_average_similarity(movie_ids, similarity_matrix, all_movie_titles):
-    predictions = []
+    def train_and_save_model(self, all_movies, model_path):
+        similarity_matrix = self.compute_similarity(all_movies)
+        joblib.dump(similarity_matrix, model_path)
+        self.logger.info(f"Model saved to {model_path}")
+        return similarity_matrix
 
-    for j, movie_id in enumerate(movie_ids):
-        similarity_scores = similarity_matrix[:, j]
-        average_similarity = np.mean(similarity_scores)
-        predictions.append({
-            "movie_id": movie_id,
-            "cosine": average_similarity,
-            "title": all_movie_titles.get(movie_id, "Unknown")
-        })
 
-    return sorted(predictions, key=lambda x: x['cosine'], reverse=True)
+    @staticmethod
+    def load_model(model_path):
+        return joblib.load(model_path)
 
 
 def main():
-    json_file_path = "movies.json"
-    all_movies = load_movies_from_json(json_file_path)
+    recommender = MovieRecommender()
+    all_movies = recommender.load_movies_from_db()
 
-    movies = all_movies[:1000]
+    movies = all_movies[:101]
 
     liked_movie_ids = [105, 680, 569094, 574, 5874]
-    selected_movies = [movie for movie in movies if 'detail' in movie and any(detail['id'] in liked_movie_ids
-                       for detail in movie['detail'])]
+    recommender.prepare_data(movies, liked_movie_ids)
 
-    all_movie_ids = [detail['id'] for movie in movies if 'detail' in movie for detail in movie['detail']]
+    model_path = "movie_similarity_model.pkl"
+    similarity_matrix = recommender.train_and_save_model(movies, model_path)
 
-    all_movie_titles = {detail['id']: detail['title'] for movie in movies if 'detail' in movie
-                        for detail in movie['detail']}
+    print("Cosine similarity matrix:")
+    print(similarity_matrix)
 
-    all_genre_ids = extract_genres(movies)
-
-    all_keywords = extract_keywords(movies)
-    keyword_counts = Counter(all_keywords)
-    most_common_keywords = [kw for kw, count in keyword_counts.most_common(500)]
-    all_keywords = most_common_keywords
-
-    all_actors = extract_actors(movies)
-
-    similarity_matrix = compute_similarity(selected_movies, movies, all_genre_ids, all_actors, all_keywords)
-
-    print("Cosine similarity between selected movies and all movies:")
-    pprint(similarity_matrix)
-    print()
-
-    predictions = compute_average_similarity(all_movie_ids, similarity_matrix, all_movie_titles)
+    predictions = recommender.compute_average_similarity(similarity_matrix)
+    print(predictions)
 
     for prediction in predictions[:20]:
-        print( f"Movie ID: {prediction['movie_id']}, Title: {prediction['title']}, "
-               f"Similarity: {prediction['cosine']:.2f}")
+        print(f"Movie ID: {prediction['movie_id']}, Title: {prediction['title']}, "
+              f"Similarity: {prediction['average_similarity']:.2f}")
 
 
 if __name__ == "__main__":
