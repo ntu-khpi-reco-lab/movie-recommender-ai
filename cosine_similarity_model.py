@@ -1,11 +1,14 @@
+import os
+from dotenv import load_dotenv
 import joblib
 import logging
 import numpy as np
-from pymongo import MongoClient
 import pandas as pd
+from pymongo import MongoClient
 from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.feature_extraction.text import CountVectorizer
 
+load_dotenv()
 
 class MovieRecommender:
     def __init__(self):
@@ -27,14 +30,11 @@ class MovieRecommender:
 
 
     @staticmethod
-    def load_movies_from_db(movie_id=None):
-        client = MongoClient("mongodb://user:pass@localhost:27017")
+    def load_movies_from_db():
+        mongo_uri = os.getenv("MONGO_URI")
+        client = MongoClient(mongo_uri)
         db = client["movieDB"]
         collection = db["movieDetails"]
-
-        query = {}
-        if movie_id:
-            query["_id"] = movie_id
 
         projection = {
             "_id": 1,
@@ -45,35 +45,35 @@ class MovieRecommender:
             "keywords": 1
         }
 
-        movies = list(collection.find(query, projection))
+        movies = list(collection.find({}, projection))
         return pd.DataFrame(movies)
 
 
-    def prepare_data(self, movies_df, liked_movie_ids):
+    def prepare_data(self, movies_df):
         self.all_movie_ids = movies_df["_id"].tolist()
         self.all_movie_titles = movies_df.set_index("_id")["title"].to_dict()
-        self.selected_movies = movies_df[movies_df["_id"].isin(liked_movie_ids)]
 
 
     @staticmethod
     def create_soup(movie):
+        genres = movie['genres'].apply(lambda x: [i['name'] for i in x] if isinstance(x, list) else [])
+        cast = movie['cast'].apply(lambda x: [i['name'] for i in x] if isinstance(x, list) else [])
+        keywords = movie['keywords'].apply(lambda x: [i['name'] for i in x] if isinstance(x, list) else [])
+        directors = movie['crew'].apply(
+            lambda x: [i['name'] for i in x if isinstance(i, dict) and i.get("job") == "Director"]
+            if isinstance(x, list) else []
+        )
 
-        genres = " ".join([genre.get('name', '') for genre in movie.get("genres", []) if isinstance(genre, dict)])
-        cast = " ".join([actor.get('name', '') for actor in movie.get("cast", []) if isinstance(actor, dict)])
-        keywords = " ".join([keyword.get('name', '') for keyword in movie.get("keywords", [])
-                             if isinstance(keyword, dict)])
-        directors = " ".join([member.get("name", "") for member in movie.get("crew", [])
-                              if isinstance(member, dict) and member.get("job") == "Director"])
+        movie['soup'] = (genres + cast + keywords + directors).apply(lambda x: " ".join(x))
 
-        return f"{genres} {cast} {keywords} {directors}"
+        return movie['soup']
 
 
     def prepare_vectors(self, movies_df):
         movies_df = movies_df.copy()
-        movies_df['soup'] = movies_df.apply(self.create_soup, axis=1)
         vectorizer = CountVectorizer(stop_words='english')
-
-        feature_matrix = vectorizer.fit_transform(movies_df['soup'])
+        soup = self.create_soup(movies_df)
+        feature_matrix = vectorizer.fit_transform(soup)
 
         return feature_matrix
 
@@ -121,7 +121,7 @@ def main():
     movies = all_movies[:101]
 
     liked_movie_ids = [105, 680, 569094, 574, 5874]
-    recommender.prepare_data(movies, liked_movie_ids)
+    recommender.prepare_data(movies)
 
     model_path = "movie_similarity_model.pkl"
     similarity_matrix = recommender.train_and_save_model(movies, model_path)
@@ -130,7 +130,6 @@ def main():
     print(similarity_matrix)
 
     predictions = recommender.compute_average_similarity(similarity_matrix)
-    print(predictions)
 
     for prediction in predictions[:20]:
         print(f"Movie ID: {prediction['movie_id']}, Title: {prediction['title']}, "
