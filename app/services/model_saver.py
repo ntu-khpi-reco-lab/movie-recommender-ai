@@ -1,5 +1,5 @@
 import joblib
-from logger_config import get_logger
+from app.utils.logger_config import get_logger
 
 
 class MovieSaver:
