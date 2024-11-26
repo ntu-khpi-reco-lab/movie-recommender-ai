@@ -12,12 +12,35 @@ app.register_blueprint(train_routes)
 app.register_blueprint(recommend_routes)
 
 def main():
+    """
+     Entry point for starting the Flask application server.
+
+    This function initializes the Flask application, sets up logging, and
+    registers route blueprints for handling different endpoints. The server
+    starts in debug mode, listening on all available interfaces (0.0.0.0) and
+    port 5000.
+
+    Features:
+        - `train_routes`: Handles training-related API routes.
+        - `main_routes`: Handles general API routes.
+        - `recommend_routes`: Handles recommendation-related API routes.
+        - Logs server startup messages for better traceability.
+
+    Example Usage:
+        Run this script directly to start the Flask server:
+        $ python main.py
+
+        Test the endpoints using the following commands:
+        - Train route:
+            Invoke-WebRequest -Uri http://127.0.0.1:5000/train -Method POST
+        - Recommend route:
+            Invoke-RestMethod -Uri "http://127.0.0.1:5000/recommend" -Method POST -ContentType "application/json" -Body '{"user_id": ID}'
+
+    :return: None
+    """
     logger.info("Starting Flask server for movie recommender.")
     app.run(debug=True, host="0.0.0.0", port=5000)
 
 
 if __name__ == "__main__":
     main()
-
-#  Invoke-WebRequest -Uri http://127.0.0.1:5000/train -Method POST
-#  Invoke-RestMethod -Uri "http://127.0.0.1:5000/recommend" -Method POST -ContentType "application/json" -Body '{"user_id": 1}'

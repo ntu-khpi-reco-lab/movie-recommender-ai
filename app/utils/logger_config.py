@@ -5,6 +5,16 @@ LOG_FILE = 'logger.log'
 
 
 def get_logger(logger_name="application"):
+    """
+    Configures and returns a logger instance with both file and console handlers.
+
+    The logger is set up with a specific name and ensures that log messages are formatted
+    and written to both a log file and the console. If a logger with the same name
+    already exists, it avoids adding duplicate handlers.
+
+    :param logger_name: (str) The name of the logger. Defaults to "application".
+    :return: (logging.Logger) A configured logger instance.
+    """
     logger = logging.getLogger(logger_name)
 
     if not logger.hasHandlers():

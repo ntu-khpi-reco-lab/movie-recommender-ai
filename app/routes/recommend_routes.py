@@ -24,6 +24,17 @@ DB_CONFIG = {
 
 @recommend_routes.route("/recommend", methods=["POST"])
 def recommend():
+    """
+    Handles a recommendation request based on the user's movie preferences.
+
+    1. Extracts the IDs of the movies liked by the user from the database.
+    2. Loads the movie similarity model.
+    3. Generates a list of recommended movies based on the user's liked movies and the similarity matrix.
+
+    :return: A JSON response with the recommended movies or an error message.
+        - In case of success, returns a list of recommended movies.
+        - In case of failure, returns an error message in JSON format.
+    """
     logger.info("Received a recommendation request")
     saver = MovieSaver()
     trainer = MovieTrainer()

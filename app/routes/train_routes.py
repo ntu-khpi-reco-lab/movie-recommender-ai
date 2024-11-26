@@ -9,6 +9,19 @@ logger = get_logger("TrainEndpoint")
 
 @train_routes.route('/train', methods=['POST'])
 def train_model():
+    """
+    Endpoint to train the movie recommendation model.
+
+    This route handles the process of training the recommendation model. It loads the movies
+    from the database, trains the model using the data, and then saves the trained model
+    to a file. The response includes a success message or an error message if something goes wrong.
+
+    1. Load movies from the database.
+    2. Train the recommendation model using the movie's data.
+    3. Save the trained model to a file.
+
+    :return: JSON response with a success or error message.
+    """
     logger.info("Training process started.")
     try:
         trainer = MovieTrainer()
