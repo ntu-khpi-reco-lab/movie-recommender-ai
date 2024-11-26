@@ -27,7 +27,7 @@ def main():
 
     liked_movie_ids = [105, 680, 569094, 574]
     logger.info(f"Generating recommendations for liked movies: {liked_movie_ids}.")
-    recommendations = recommender.generate_recommendations(liked_movie_ids, loaded_similarity_matrix)
+    recommendations = recommender.generate_recommendations(liked_movie_ids, movies_df, loaded_similarity_matrix)
 
     logger.info("Displaying top 20 recommendations.")
     recommendation_logs = "\n".join(
