@@ -28,19 +28,25 @@ class MovieRecommender:
             return 0.0
 
     def generate_recommendations(self, liked_movies, movies_df, similarity_matrix):
+        self.logger.info(f"Computing cosine similarity for {len(liked_movies)} liked movies.")
         liked_movie_indices = [self.all_movie_ids.index(movie) for movie in liked_movies if movie in self.all_movie_ids]
+        print(liked_movie_indices)
         if not liked_movie_indices:
             self.logger.warning("No liked movies found in the dataset.")
             return []
 
         recommendations = []
-        for movie_id in movies_df:
+        for _, row in movies_df.iterrows():
+            movie_id = row["_id"]
             if movie_id in self.all_movie_ids:
                 target_index = self.all_movie_ids.index(movie_id)
-                avg_similarity_score = self.compute_cosine_similarity(liked_movie_indices, target_index, similarity_matrix)
+                print(f"tar {target_index}")
+                avg_similarity_score = self.compute_cosine_similarity(liked_movie_indices,
+                                                                      target_index, similarity_matrix)
+                print(f"avg {avg_similarity_score}")
                 recommendations.append({
                     "movie_id": movie_id,
-                    "title": self.all_movie_titles.get(movie_id, "Unknown Title"),
+                    "title": row["title"],
                     "average_similarity": avg_similarity_score
                 })
 
