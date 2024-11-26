@@ -1,5 +1,5 @@
 import numpy as np
-from logger_config import get_logger
+from app.utils.logger_config import get_logger
 
 
 class MovieRecommender:
