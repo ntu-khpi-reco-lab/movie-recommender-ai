@@ -3,31 +3,21 @@ from app.services.movie_recommender import MovieRecommender
 from app.services.movie_trainer import MovieTrainer
 from app.services.model_saver import MovieSaver
 from app.utils.logger_config import get_logger
-import psycopg2
-import psycopg2.extras
-from dotenv import load_dotenv
-import os
+import requests
 
-load_dotenv()
 
 recommend_routes = Blueprint('recommend_routes', __name__)
 
 logger = get_logger("RecoEndpoint")
 
-DB_CONFIG = {
-    "dbname": os.getenv("DB_NAME"),
-    "user": os.getenv("DB_USER"),
-    "password": os.getenv("DB_PASSWORD"),
-    "host": os.getenv("DB_HOST"),
-    "port": int(os.getenv("DB_PORT")),
-}
+API_URL="http://localhost:9002/api/v1/favorites"
 
 @recommend_routes.route("/recommend", methods=["POST"])
 def recommend():
     """
     Handles a recommendation request based on the user's movie preferences.
 
-    1. Extracts the IDs of the movies liked by the user from the database.
+    1. Fetches the IDs of movies liked by the user via an external API.
     2. Loads the movie similarity model.
     3. Generates a list of recommended movies based on the user's liked movies and the similarity matrix.
 
@@ -40,24 +30,30 @@ def recommend():
     trainer = MovieTrainer()
 
     try:
-        with psycopg2.connect(**DB_CONFIG) as conn:
-            logger.info("Connected to the database")
-            with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cursor:
-                query = "SELECT movie_id FROM user_favorite_movies WHERE user_id = %s"
-                user_id = request.json.get("user_id")
-                if not user_id:
-                    logger.warning(f"User ID {user_id} not provided in the request")
-                    return jsonify({"message": "User ID is required"}), 400
+        data = request.json
+        logger.info(f"Request data: {data}")
 
-                logger.info(f"Fetching liked movies for user_id: {user_id}")
-                cursor.execute(query, (user_id,))
-                liked_movie_ids = [row["movie_id"] for row in cursor.fetchall()]
+        user_id = data.get("user_id")
+        # response = requests.get(API_URL)
+        # data = response.json()
+        #
+        for item in data:
+            print(item)
 
-                logger.debug(f"Liked movie IDs: {liked_movie_ids}")
+        if not user_id:
+            logger.warning("User ID not provided in the request")
+            return jsonify({"message": "User ID is required"}), 400
 
-                if not liked_movie_ids:
-                    logger.warning(f"No liked movies found for user_id: {user_id}")
-                    return jsonify({"message": "No liked movies found for the user"}), 404
+        logger.info(f"Fetching liked movies for user_id: {user_id}")
+        response = requests.get(f"{API_URL}/{user_id}")
+        if response.status_code != 200:
+            logger.error(f"Failed to fetch data from API: {response.status_code}, {response.text}")
+            return jsonify({"message": "Failed to fetch user favorites"}), 500
+
+        response_data = response.json()
+        print(f"response_data {response_data}")
+        liked_movie_ids = response_data
+        logger.info(f"Liked movie IDs: {liked_movie_ids}")
 
         movies_df = trainer.load_movies_from_db()
         model_path = "./movie_similarity_model.pkl"
@@ -76,7 +72,7 @@ def recommend():
 
         logger.info("Displaying top 20 recommendations.")
         recommendation_logs = "\n".join(
-            [f"Movie ID: {rec['movie_id']}, Title: {rec['title']}, Similarity: {rec['average_similarity']:.2f}"
+            [f"Movie ID: {rec['movie_id']}, Similarity: {rec['average_similarity']:.2f}"
              for rec in recommendations[:20]]
         )
         logger.info(f"Top 20 Recommendations:\n{recommendation_logs}")
@@ -84,9 +80,10 @@ def recommend():
         logger.info("Recommendations generated successfully")
         return jsonify(recommendations)
 
-    except psycopg2.Error as db_error:
-        logger.error(f"Database error: {str(db_error)}")
-        return jsonify({"error": f"Database error: {str(db_error)}"}), 500
+
+    except requests.RequestException as api_error:
+        logger.error(f"API request error: {str(api_error)}")
+        return jsonify({"error": f"API error: {str(api_error)}"}), 500
     except Exception as e:
         logger.exception(f"An unexpected error occurred: {str(e)}")
         return jsonify({"error": f"An error occurred: {str(e)}"}), 500

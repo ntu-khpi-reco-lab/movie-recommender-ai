@@ -75,13 +75,10 @@ class MovieRecommender:
             movie_id = row["_id"]
             if movie_id in self.all_movie_ids:
                 target_index = self.all_movie_ids.index(movie_id)
-                print(f"tar {target_index}")
                 avg_similarity_score = self.compute_cosine_similarity(liked_movie_indices,
                                                                       target_index, similarity_matrix)
-                print(f"avg {avg_similarity_score}")
                 recommendations.append({
                     "movie_id": movie_id,
-                    "title": row["title"],
                     "average_similarity": avg_similarity_score
                 })
 
