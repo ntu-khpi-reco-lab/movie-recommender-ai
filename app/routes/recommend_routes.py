@@ -1,12 +1,9 @@
 from flask import Blueprint, jsonify, request
 from app.services.movie_recommender import MovieRecommender
-from app.services.model_saver import MovieSaver
 from app.utils.logger_config import get_logger
 import requests
 
-
 recommend_routes = Blueprint('recommend_routes', __name__)
-
 logger = get_logger("RecoEndpoint")
 
 @recommend_routes.route("/recommend", methods=["POST"])
@@ -28,8 +25,7 @@ def recommend():
         - In case of failure, returns an error message in JSON format.
     """
     logger.info("Received a recommendation request")
-    saver = MovieSaver()
-
+    
     try:
         data = request.get_json()
         logger.info(f"Request data: {data}")
@@ -40,15 +36,12 @@ def recommend():
         logger.info(f"Liked movie IDs: {liked_movie_ids}")
 
         model_path = "./movie_similarity_model.pkl"
-        loaded_similarity_matrix = saver.load_model(model_path)
-
-        if loaded_similarity_matrix is None:
-            logger.error("Similarity matrix is None")
-            return jsonify({"message": "Model not found"}), 500
 
         logger.info("Generating movie recommendations")
-        recommender = MovieRecommender(movie_ids)
-        recommendations = recommender.generate_recommendations(liked_movie_ids, loaded_similarity_matrix)
+
+        recommender = MovieRecommender()
+        recommender.load_model(model_path)
+        recommendations = recommender.generate_recommendations(liked_movie_ids, movie_ids)
 
         logger.info("Recommendations generated successfully")
         return jsonify(recommendations)
