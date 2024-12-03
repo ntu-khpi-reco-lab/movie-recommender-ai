@@ -1,6 +1,5 @@
 from flask import Blueprint, jsonify, request
 from app.services.movie_recommender import MovieRecommender
-from app.services.movie_trainer import MovieTrainer
 from app.services.model_saver import MovieSaver
 from app.utils.logger_config import get_logger
 import requests
@@ -30,16 +29,16 @@ def recommend():
     """
     logger.info("Received a recommendation request")
     saver = MovieSaver()
-    trainer = MovieTrainer()
 
     try:
         data = request.get_json()
         logger.info(f"Request data: {data}")
 
+        movie_ids = data["movieIds"]
+        logger.info(f"Now playing movie IDs: {movie_ids}")
         liked_movie_ids = data.get("likedMovieIds")
         logger.info(f"Liked movie IDs: {liked_movie_ids}")
 
-        movies_df = trainer.load_movies_from_db()
         model_path = "./movie_similarity_model.pkl"
         loaded_similarity_matrix = saver.load_model(model_path)
 
@@ -48,7 +47,7 @@ def recommend():
             return jsonify({"message": "Model not found"}), 500
 
         logger.info("Generating movie recommendations")
-        recommender = MovieRecommender(movies_df)
+        recommender = MovieRecommender(movie_ids)
         recommendations = recommender.generate_recommendations(liked_movie_ids, loaded_similarity_matrix)
 
         logger.info("Recommendations generated successfully")

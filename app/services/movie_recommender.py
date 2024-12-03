@@ -8,19 +8,18 @@ class MovieRecommender:
     It calculates similarity between movies based on user preferences (liked movies) and
     generates a list of recommended movies accordingly.
     """
-    def __init__(self, movies_df):
+    def __init__(self, movie_ids):
         """
-        Initializes the MovieRecommender instance with the provided movie dataset.
+        Initializes the MovieRecommender instance with the given list of currently showing movies.
 
-        The initialization process extracts all movie IDs and titles from the dataset and stores them
-        in memory for use during recommendation generation.
+        The initialization process extracts all movie IDs and stores them in memory for
+        later use during recommendation generation.
 
-        :param movies_df: A DataFrame containing movie details, including "_id" and "title".
+        :param movie_ids: A list of IDs for movies currently being shown.
         """
         self.logger = get_logger("MovieTrainer")
         self.logger.info("Initializing MovieRecommender.")
-        self.all_movie_ids = movies_df["_id"].tolist()
-        self.all_movie_titles = movies_df.set_index("_id")["title"].to_dict()
+        self.all_movie_ids = movie_ids
         self.logger.info(f"Loaded {len(self.all_movie_ids)} movies into the recommender.")
 
     def compute_cosine_similarity(self, liked_movie_indices, target_index, similarity_matrix):
@@ -63,7 +62,7 @@ class MovieRecommender:
         :return: A list of recommended movies sorted by their average similarity score.
         """
         self.logger.info(f"Computing cosine similarity for {len(liked_movies)} liked movies.")
-        liked_movie_indices = [self.all_movie_ids.index(movie) for movie in liked_movies if movie in self.all_movie_ids]
+        liked_movie_indices = [self.all_movie_ids.index(movie) for movie in liked_movies]
         print(liked_movie_indices)
         if not liked_movie_indices:
             self.logger.warning("No liked movies found in the dataset.")
@@ -72,8 +71,7 @@ class MovieRecommender:
         recommendations = []
         for movie_id in self.all_movie_ids:
             target_index = self.all_movie_ids.index(movie_id)
-            avg_similarity_score = self.compute_cosine_similarity(liked_movie_indices,
-                                                                  target_index, similarity_matrix)
+            avg_similarity_score = self.compute_cosine_similarity(liked_movie_indices, target_index, similarity_matrix)
             recommendations.append({
                 "movie_id": movie_id,
                 "average_similarity": avg_similarity_score
