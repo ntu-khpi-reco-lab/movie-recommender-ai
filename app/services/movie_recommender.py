@@ -51,7 +51,7 @@ class MovieRecommender:
             self.logger.error(f"Unexpected error during similarity calculation: {str(e)}", exc_info=True)
             return 0.0
 
-    def generate_recommendations(self, liked_movies, movies_df, similarity_matrix):
+    def generate_recommendations(self, liked_movies, similarity_matrix):
         """
         Generates a list of recommended movies based on the cosine similarity of liked movies.
 
@@ -59,7 +59,6 @@ class MovieRecommender:
         sorting them based on the highest average similarity to generate recommendations.
 
         :param liked_movies: List of movie titles that the user has liked.
-        :param movies_df: DataFrame containing movie details (including "_id" and "title").
         :param similarity_matrix: The matrix containing pairwise cosine similarities between all movies.
         :return: A list of recommended movies sorted by their average similarity score.
         """
@@ -71,16 +70,14 @@ class MovieRecommender:
             return []
 
         recommendations = []
-        for _, row in movies_df.iterrows():
-            movie_id = row["_id"]
-            if movie_id in self.all_movie_ids:
-                target_index = self.all_movie_ids.index(movie_id)
-                avg_similarity_score = self.compute_cosine_similarity(liked_movie_indices,
-                                                                      target_index, similarity_matrix)
-                recommendations.append({
-                    "movie_id": movie_id,
-                    "average_similarity": avg_similarity_score
-                })
+        for movie_id in self.all_movie_ids:
+            target_index = self.all_movie_ids.index(movie_id)
+            avg_similarity_score = self.compute_cosine_similarity(liked_movie_indices,
+                                                                  target_index, similarity_matrix)
+            recommendations.append({
+                "movie_id": movie_id,
+                "average_similarity": avg_similarity_score
+            })
 
         self.logger.info(f"Generated similarity scores for {len(recommendations)} movies.")
 

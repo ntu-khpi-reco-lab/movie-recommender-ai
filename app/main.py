@@ -32,9 +32,9 @@ def main():
 
         Test the endpoints using the following commands:
         - Train route:
-            Invoke-WebRequest -Uri http://127.0.0.1:5000/train -Method POST
+            Invoke-WebRequest -Uri http://localhost:5000/train -Method POST
         - Recommend route:
-            Invoke-RestMethod -Uri "http://127.0.0.1:5000/recommend" -Method POST -ContentType "application/json" -Body '{"user_id": ID}'
+            Invoke-RestMethod -Uri "http://localhost:5000/recommend" -Method POST -ContentType "application/json" -Body '{"movieIds" : [680, 105, 6, 8, 10, 13, 16], "likedMovieIds": [25, 105, 569094, 574, 6]}'
 
     :return: None
     """
