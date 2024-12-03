@@ -51,13 +51,6 @@ def recommend():
         recommender = MovieRecommender(movies_df)
         recommendations = recommender.generate_recommendations(liked_movie_ids, loaded_similarity_matrix)
 
-        logger.info("Displaying top 20 recommendations.")
-        recommendation_logs = "\n".join(
-            [f"Movie ID: {rec['movie_id']}, Similarity: {rec['average_similarity']:.2f}"
-             for rec in recommendations[:20]]
-        )
-        logger.info(f"Top 20 Recommendations:\n{recommendation_logs}")
-
         logger.info("Recommendations generated successfully")
         return jsonify(recommendations)
 
