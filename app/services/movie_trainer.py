@@ -18,7 +18,7 @@ class MovieTrainer:
 
     def load_movies_from_db(self):
         self.logger.info("Loading movies from MongoDB.")
-        mongo_uri = "mongodb://user:pass@localhost:27017" #os.getenv("MONGO_URI")
+        mongo_uri = os.getenv("MONGO_URI")
         client = MongoClient(mongo_uri)
         db = client["movieDB"]
         collection = db["movieDetails"]
