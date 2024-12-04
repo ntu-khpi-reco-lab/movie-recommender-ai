@@ -35,8 +35,7 @@ def recommend():
         liked_movie_ids = data.get("likedMovieIds")
         logger.info(f"Liked movie IDs: {liked_movie_ids}")
 
-        model_path = "./movie_similarity_model.pkl"
-
+        model_path = "../movie_similarity_model.pkl"
         logger.info("Generating movie recommendations")
 
         recommender = MovieRecommender()

@@ -28,6 +28,10 @@ class MovieRecommender:
             return 0.0
 
     def generate_recommendations(self, liked_movies, movie_ids):
+        if self.indices is None:
+            self.logger.error("Indices are not initialized. Please load the model correctly.")
+            return []
+
         self.logger.info(f"Computing cosine similarity for {len(liked_movies)} liked movies.")
         liked_movie_indices = [self.indices[movie_id] for movie_id in liked_movies if movie_id in self.indices]
         print(liked_movie_indices)
